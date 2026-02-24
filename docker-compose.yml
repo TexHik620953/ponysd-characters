@@ -1,0 +1,38 @@
+services:
+  characters-db:
+    hostname: characters-db
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CHARACTERS_DB_USER} -d ${CHARACTERS_DB_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_PASSWORD: $CHARACTERS_DB_PASSWORD
+      POSTGRES_USER: $CHARACTERS_DB_USER
+      POSTGRES_DB: $CHARACTERS_DB_DB
+    ports:
+      - 5432:5432
+    logging:
+        driver: "json-file"
+        options:
+          max-size: "1m"
+          max-file: "1"
+
+  migrations:
+    build:
+      dockerfile: docker/goose/Dockerfile
+    environment:
+      - GOOSE_DRIVER=postgres
+      - GOOSE_DBSTRING=postgres://${CHARACTERS_DB_USER}:${CHARACTERS_DB_PASSWORD}@characters-db:5432/${CHARACTERS_DB_DB}
+    volumes:
+      - ./sqlc/migrations:/data
+    command: up #down-to 001
+    depends_on:
+      characters-db:
+        condition: service_healthy
+volumes:
+  postgres_data:
+    driver: local
