@@ -66,7 +66,7 @@ func (ctrl *Controller) PublicGet(c *echo.Context) error {
 
 	svc := ctrl.services.CharacterService()
 
-	char, err := svc.GetPublicCharacter(c.Request().Context(), characterID)
+	char, err := svc.GetCharacter(c.Request().Context(), uuid.Nil, characterID)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (ctrl *Controller) Get(c *echo.Context) error {
 
 	svc := ctrl.services.CharacterService()
 
-	char, err := svc.GetUserCharacter(c.Request().Context(), user, characterID)
+	char, err := svc.GetCharacter(c.Request().Context(), user, characterID)
 	if err != nil {
 		return err
 	}

@@ -103,42 +103,12 @@ func (svc *Service) ListUserCharacters(ctx context.Context, userID uuid.UUID) ([
 
 	return result, nil
 }
-func (svc *Service) GetUserCharacter(ctx context.Context, userID, characterID uuid.UUID) (*Character, error) {
+func (svc *Service) GetCharacter(ctx context.Context, userID, characterID uuid.UUID) (*Character, error) {
 	q := query.New(svc.tx)
-	data, err := q.GetUserCharacter(ctx, query.GetUserCharacterParams{
+	data, err := q.GetCharacter(ctx, query.GetCharacterParams{
 		OwnerID: userID,
 		ID:      characterID,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	var meta map[string]float32
-	if err := json.Unmarshal([]byte(data.MetaParams), &meta); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal character meta:%w", err)
-	}
-
-	return &Character{
-		ID:            data.ID,
-		OwnerID:       data.OwnerID,
-		CreatedAt:     data.CreatedAt.Time,
-		Nationality:   data.Nationality,
-		Biography:     data.Biography,
-		Name:          data.Name,
-		Age:           int(data.Age),
-		Body:          data.Body,
-		Breast:        data.Breast,
-		Butt:          data.Butt,
-		EyesColor:     data.EyesColor,
-		HairStyle:     data.HairStyle,
-		HairColor:     data.HairColor,
-		CharacterMeta: meta,
-		MainImage:     data.MainImageID,
-	}, nil
-}
-func (svc *Service) GetPublicCharacter(ctx context.Context, characterID uuid.UUID) (*Character, error) {
-	q := query.New(svc.tx)
-	data, err := q.GetPublicCharacter(ctx, characterID)
 	if err != nil {
 		return nil, err
 	}
@@ -176,20 +146,6 @@ func (svc *Service) DeleteCharacter(ctx context.Context, userID, characterID uui
 
 // Character creating with fields validation
 
-func pickRandomGlossary(data []glossary.GlossaryRecord, rng *rand.Rand) string {
-	if len(data) == 0 {
-		return ""
-	}
-	return data[rng.Int31n(int32(len(data)))].Value
-}
-func inGlossary(data []glossary.GlossaryRecord, val string) bool {
-	for _, v := range data {
-		if v.Value == val {
-			return true
-		}
-	}
-	return false
-}
 func (svc *Service) fixCharacter(ctx context.Context, character *Character, rng *rand.Rand) error {
 	// Get variables from glossary and validate character.
 	// All missing fields are set to random from glossary
@@ -226,13 +182,13 @@ func (svc *Service) fixCharacter(ctx context.Context, character *Character, rng 
 	}
 
 	rage := int(18 + rng.Int31n(18))
-	rnationality := pickRandomGlossary(gnat, rng)
-	rbody := pickRandomGlossary(gbody, rng)
-	rbreast := pickRandomGlossary(gbreast, rng)
-	rbutt := pickRandomGlossary(gbutt, rng)
-	reyesColor := pickRandomGlossary(geyesColor, rng)
-	rhairColor := pickRandomGlossary(ghairColor, rng)
-	rhairStyle := pickRandomGlossary(ghairStyle, rng)
+	rnationality := glossary.PickRandomGlossary(gnat, rng)
+	rbody := glossary.PickRandomGlossary(gbody, rng)
+	rbreast := glossary.PickRandomGlossary(gbreast, rng)
+	rbutt := glossary.PickRandomGlossary(gbutt, rng)
+	reyesColor := glossary.PickRandomGlossary(geyesColor, rng)
+	rhairColor := glossary.PickRandomGlossary(ghairColor, rng)
+	rhairStyle := glossary.PickRandomGlossary(ghairStyle, rng)
 
 	if len(character.Name) == 0 {
 		gen := namegenerator.NewGenerator().WithGender(namegenerator.Female)
@@ -242,27 +198,13 @@ func (svc *Service) fixCharacter(ctx context.Context, character *Character, rng 
 	if character.Age < 18 || character.Age > 40 {
 		character.Age = rage
 	}
-	if len(character.Nationality) == 0 || !inGlossary(gnat, character.Nationality) {
-		character.Nationality = rnationality
-	}
-	if len(character.Body) == 0 || !inGlossary(gbody, character.Body) {
-		character.Body = rbody
-	}
-	if len(character.Breast) == 0 || !inGlossary(gbreast, character.Breast) {
-		character.Breast = rbreast
-	}
-	if len(character.Butt) == 0 || !inGlossary(gbutt, character.Butt) {
-		character.Butt = rbutt
-	}
-	if len(character.EyesColor) == 0 || !inGlossary(geyesColor, character.EyesColor) {
-		character.EyesColor = reyesColor
-	}
-	if len(character.HairColor) == 0 || !inGlossary(ghairColor, character.HairColor) {
-		character.HairColor = rhairColor
-	}
-	if len(character.HairStyle) == 0 || !inGlossary(ghairStyle, character.HairStyle) {
-		character.HairStyle = rhairStyle
-	}
+	glossary.SetIfInvalid(&character.Nationality, gnat, rnationality)
+	glossary.SetIfInvalid(&character.Body, gnat, rbody)
+	glossary.SetIfInvalid(&character.Breast, gnat, rbreast)
+	glossary.SetIfInvalid(&character.Butt, gnat, rbutt)
+	glossary.SetIfInvalid(&character.EyesColor, gnat, reyesColor)
+	glossary.SetIfInvalid(&character.HairColor, gnat, rhairColor)
+	glossary.SetIfInvalid(&character.HairStyle, gnat, rhairStyle)
 
 	if character.CharacterMeta == nil {
 		character.CharacterMeta = map[string]float32{}
@@ -301,18 +243,38 @@ func (svc *Service) CreateCharacter(ctx context.Context, character *Character, s
 	}
 	character.ID = id
 
-	environment, err := svc.glossary.NewEnvironment(ctx, rng)
+	env, err := svc.glossary.NewEnvironment(ctx, rng)
 	if err != nil {
 		return err
+	}
+	img, err := svc.CreateImage(ctx, character.OwnerID, character.ID, env, seed)
+	_ = img
+	return err
+}
+
+// Image generation
+
+func (svc *Service) CreateImage(ctx context.Context, userID, characterID uuid.UUID, environment *glossary.CharacterEnvironment, seed int64) (any, error) {
+	rng := rand.New(rand.NewSource(seed))
+
+	// Get character
+	character, err := svc.GetCharacter(ctx, userID, characterID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = svc.glossary.FixEnvironment(ctx, environment, rng)
+	if err != nil {
+		return nil, err
 	}
 
 	defaultPositiveTags, err := svc.glossary.ListRecordsByType(ctx, glossary.KEY_DEFAULT_POSITIVE)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defaultNegativeTags, err := svc.glossary.ListRecordsByType(ctx, glossary.KEY_DEFAULT_NEGATIVE)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	negativeTags := make([]string, 0)
 	for _, rec := range defaultNegativeTags {
@@ -326,6 +288,7 @@ func (svc *Service) CreateCharacter(ctx context.Context, character *Character, s
 	positiveTags = append(positiveTags, character.BuildTags()...)
 	positiveTags = append(positiveTags, environment.BuildTags()...)
 
+	// TODO: Generate task here
 	/*
 		// Run task for generation
 		task := &task.Task{
@@ -337,5 +300,6 @@ func (svc *Service) CreateCharacter(ctx context.Context, character *Character, s
 		}
 		_, err = svc.taskSvc.CreateImageTask(ctx, task)
 	*/
-	return err
+
+	return nil, nil
 }

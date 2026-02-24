@@ -65,46 +65,24 @@ func (q *Queries) DeleteCharacter(ctx context.Context, arg DeleteCharacterParams
 	return err
 }
 
-const getPublicCharacter = `-- name: GetPublicCharacter :one
-select id, created_at, owner_id, deleted, public, name, biography, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params, main_image_id from character where id = $1 and not deleted and public limit 1
+const getCharacter = `-- name: GetCharacter :one
+select id, created_at, owner_id, deleted, public, name, biography, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params, main_image_id from character 
+where id = $1 
+  and not deleted 
+  and (
+    public 
+    or owner_id = $2
+  )
+limit 1
 `
 
-func (q *Queries) GetPublicCharacter(ctx context.Context, id uuid.UUID) (Character, error) {
-	row := q.db.QueryRow(ctx, getPublicCharacter, id)
-	var i Character
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.OwnerID,
-		&i.Deleted,
-		&i.Public,
-		&i.Name,
-		&i.Biography,
-		&i.Nationality,
-		&i.Age,
-		&i.Body,
-		&i.Breast,
-		&i.Butt,
-		&i.EyesColor,
-		&i.HairStyle,
-		&i.HairColor,
-		&i.MetaParams,
-		&i.MainImageID,
-	)
-	return i, err
-}
-
-const getUserCharacter = `-- name: GetUserCharacter :one
-select id, created_at, owner_id, deleted, public, name, biography, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params, main_image_id from character where owner_id = $1 and id = $2 and not deleted limit 1
-`
-
-type GetUserCharacterParams struct {
-	OwnerID uuid.UUID
+type GetCharacterParams struct {
 	ID      uuid.UUID
+	OwnerID uuid.UUID
 }
 
-func (q *Queries) GetUserCharacter(ctx context.Context, arg GetUserCharacterParams) (Character, error) {
-	row := q.db.QueryRow(ctx, getUserCharacter, arg.OwnerID, arg.ID)
+func (q *Queries) GetCharacter(ctx context.Context, arg GetCharacterParams) (Character, error) {
+	row := q.db.QueryRow(ctx, getCharacter, arg.ID, arg.OwnerID)
 	var i Character
 	err := row.Scan(
 		&i.ID,

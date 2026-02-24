@@ -24,22 +24,20 @@ func New(
 	return svc
 }
 
-func (svc *Service) CreateImage(ctx context.Context, characterID uuid.UUID, file []byte) (uuid.UUID, error) {
-	// Save file
-	fileHash, err := svc.fs.StoreFile(ctx, file)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
+func (svc *Service) InsertImage(ctx context.Context, userID, characterID uuid.UUID, fileHash string) (uuid.UUID, error) {
 	q := query.New(svc.tx)
-	return q.CreateImage(ctx, query.CreateImageParams{
+	return q.InsertImage(ctx, query.InsertImageParams{
+		OwnerID:     userID,
 		CharacterID: characterID,
 		FileHash:    fileHash,
 	})
 }
-func (svc *Service) GetImage(ctx context.Context, ID uuid.UUID) (*FileInfo, error) {
+func (svc *Service) GetImage(ctx context.Context, userID, imageID uuid.UUID) (*FileInfo, error) {
 	q := query.New(svc.tx)
-	img, err := q.GetImage(ctx, ID)
+	img, err := q.GetImage(ctx, query.GetImageParams{
+		OwnerID: userID,
+		ID:      imageID,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -67,18 +65,24 @@ func (svc *Service) GetMainImage(ctx context.Context, characterID uuid.UUID) (*F
 		IsMain:      img.IsMain,
 	}, nil
 }
-func (svc *Service) GetImageData(ctx context.Context, ID uuid.UUID) ([]byte, error) {
+func (svc *Service) GetImageData(ctx context.Context, userID, imageID uuid.UUID) ([]byte, error) {
 	q := query.New(svc.tx)
-	img, err := q.GetImage(ctx, ID)
+	img, err := q.GetImage(ctx, query.GetImageParams{
+		OwnerID: userID,
+		ID:      imageID,
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	return svc.fs.GetFile(ctx, img.FileHash)
 }
-func (svc *Service) ListImages(ctx context.Context, characterID uuid.UUID) ([]FileInfo, error) {
+func (svc *Service) ListCharacterImages(ctx context.Context, userID, characterID uuid.UUID) ([]FileInfo, error) {
 	q := query.New(svc.tx)
-	images, err := q.ListImages(ctx, characterID)
+	images, err := q.ListCharacterImages(ctx, query.ListCharacterImagesParams{
+		OwnerID:     userID,
+		CharacterID: characterID,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -95,11 +99,4 @@ func (svc *Service) ListImages(ctx context.Context, characterID uuid.UUID) ([]Fi
 	}
 
 	return result, nil
-}
-func (svc *Service) SetMainImage(ctx context.Context, characterID, ID uuid.UUID) error {
-	q := query.New(svc.tx)
-	return q.SetMainImage(ctx, query.SetMainImageParams{
-		ID:          ID,
-		CharacterID: characterID,
-	})
 }

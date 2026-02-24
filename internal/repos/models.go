@@ -32,6 +32,7 @@ type Character struct {
 type CharacterImage struct {
 	ID          uuid.UUID
 	CreatedAt   pgtype.Timestamp
+	OwnerID     uuid.UUID
 	CharacterID uuid.UUID
 	FileHash    string
 	IsMain      bool

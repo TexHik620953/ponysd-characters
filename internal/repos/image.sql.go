@@ -11,32 +11,22 @@ import (
 	"github.com/google/uuid"
 )
 
-const createImage = `-- name: CreateImage :one
-insert into character_image (character_id, file_hash) values ($1, $2) returning id
-`
-
-type CreateImageParams struct {
-	CharacterID uuid.UUID
-	FileHash    string
-}
-
-func (q *Queries) CreateImage(ctx context.Context, arg CreateImageParams) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, createImage, arg.CharacterID, arg.FileHash)
-	var id uuid.UUID
-	err := row.Scan(&id)
-	return id, err
-}
-
 const getImage = `-- name: GetImage :one
-select id, created_at, character_id, file_hash, is_main from character_image where id = $1 limit 1
+select id, created_at, owner_id, character_id, file_hash, is_main from character_image where owner_id = $1 and id = $2 limit 1
 `
 
-func (q *Queries) GetImage(ctx context.Context, id uuid.UUID) (CharacterImage, error) {
-	row := q.db.QueryRow(ctx, getImage, id)
+type GetImageParams struct {
+	OwnerID uuid.UUID
+	ID      uuid.UUID
+}
+
+func (q *Queries) GetImage(ctx context.Context, arg GetImageParams) (CharacterImage, error) {
+	row := q.db.QueryRow(ctx, getImage, arg.OwnerID, arg.ID)
 	var i CharacterImage
 	err := row.Scan(
 		&i.ID,
 		&i.CreatedAt,
+		&i.OwnerID,
 		&i.CharacterID,
 		&i.FileHash,
 		&i.IsMain,
@@ -45,7 +35,7 @@ func (q *Queries) GetImage(ctx context.Context, id uuid.UUID) (CharacterImage, e
 }
 
 const getMainImage = `-- name: GetMainImage :one
-select id, created_at, character_id, file_hash, is_main from character_image where character_id = $1 and is_main = true limit 1
+select id, created_at, owner_id, character_id, file_hash, is_main from character_image where character_id = $1 and is_main = true limit 1
 `
 
 func (q *Queries) GetMainImage(ctx context.Context, characterID uuid.UUID) (CharacterImage, error) {
@@ -54,6 +44,7 @@ func (q *Queries) GetMainImage(ctx context.Context, characterID uuid.UUID) (Char
 	err := row.Scan(
 		&i.ID,
 		&i.CreatedAt,
+		&i.OwnerID,
 		&i.CharacterID,
 		&i.FileHash,
 		&i.IsMain,
@@ -61,12 +52,34 @@ func (q *Queries) GetMainImage(ctx context.Context, characterID uuid.UUID) (Char
 	return i, err
 }
 
-const listImages = `-- name: ListImages :many
-select id, created_at, character_id, file_hash, is_main from character_image where character_id = $1
+const insertImage = `-- name: InsertImage :one
+insert into character_image (owner_id, character_id, file_hash) values ($1, $2, $3) returning id
 `
 
-func (q *Queries) ListImages(ctx context.Context, characterID uuid.UUID) ([]CharacterImage, error) {
-	rows, err := q.db.Query(ctx, listImages, characterID)
+type InsertImageParams struct {
+	OwnerID     uuid.UUID
+	CharacterID uuid.UUID
+	FileHash    string
+}
+
+func (q *Queries) InsertImage(ctx context.Context, arg InsertImageParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, insertImage, arg.OwnerID, arg.CharacterID, arg.FileHash)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const listCharacterImages = `-- name: ListCharacterImages :many
+select id, created_at, owner_id, character_id, file_hash, is_main from character_image where owner_id = $1 and character_id = $2
+`
+
+type ListCharacterImagesParams struct {
+	OwnerID     uuid.UUID
+	CharacterID uuid.UUID
+}
+
+func (q *Queries) ListCharacterImages(ctx context.Context, arg ListCharacterImagesParams) ([]CharacterImage, error) {
+	rows, err := q.db.Query(ctx, listCharacterImages, arg.OwnerID, arg.CharacterID)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +90,7 @@ func (q *Queries) ListImages(ctx context.Context, characterID uuid.UUID) ([]Char
 		if err := rows.Scan(
 			&i.ID,
 			&i.CreatedAt,
+			&i.OwnerID,
 			&i.CharacterID,
 			&i.FileHash,
 			&i.IsMain,
@@ -89,18 +103,4 @@ func (q *Queries) ListImages(ctx context.Context, characterID uuid.UUID) ([]Char
 		return nil, err
 	}
 	return items, nil
-}
-
-const setMainImage = `-- name: SetMainImage :exec
-update character_image set is_main = true where character_id =$1 and id = $2
-`
-
-type SetMainImageParams struct {
-	CharacterID uuid.UUID
-	ID          uuid.UUID
-}
-
-func (q *Queries) SetMainImage(ctx context.Context, arg SetMainImageParams) error {
-	_, err := q.db.Exec(ctx, setMainImage, arg.CharacterID, arg.ID)
-	return err
 }

@@ -31,6 +31,7 @@ create table if not exists character_image
         constraint character_image_pk
             primary key,
     created_at  timestamp default now()             not null,
+    owner_id uuid not null,
     character_id uuid                           not null
         constraint character_image_character_fk
             references character on delete cascade on update cascade,

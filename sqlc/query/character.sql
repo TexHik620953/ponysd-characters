@@ -4,11 +4,15 @@ select * from character where owner_id = $1 and not deleted;
 -- name: ListPublicCharacters :many
 select * from character where public and not deleted limit $1 offset $2;
 
--- name: GetUserCharacter :one
-select * from character where owner_id = $1 and id = $2 and not deleted limit 1;
-
--- name: GetPublicCharacter :one
-select * from character where id = $1 and not deleted and public limit 1;
+-- name: GetCharacter :one
+select * from character 
+where id = $1 
+  and not deleted 
+  and (
+    public 
+    or owner_id = $2
+  )
+limit 1;
 
 -- name: DeleteCharacter :exec
 update character set deleted = true where owner_id = $1 and id = $2 and not deleted;

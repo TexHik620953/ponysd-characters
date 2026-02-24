@@ -103,3 +103,41 @@ func (svc *Service) NewEnvironment(ctx context.Context, rng *rand.Rand) (*Charac
 		NSFW:        nsfw.Type,
 	}, nil
 }
+
+func (svc *Service) FixEnvironment(ctx context.Context, env *CharacterEnvironment, rng *rand.Rand) error {
+
+	actions, err := svc.ListRecordsByType(ctx, KEY_ACTION)
+	if err != nil {
+		return err
+	}
+	clothes, err := svc.ListRecordsByType(ctx, KEY_CLOTHES)
+	if err != nil {
+		return err
+	}
+	environs, err := svc.ListRecordsByType(ctx, KEY_ENVIRONMENT)
+	if err != nil {
+		return err
+	}
+	backs, err := svc.ListRecordsByType(ctx, KEY_BACKGROUND)
+	if err != nil {
+		return err
+	}
+	nsfws, err := svc.ListRecordsByType(ctx, KEY_NSFW)
+	if err != nil {
+		return err
+	}
+
+	raction := PickRandomGlossary(actions, rng)
+	rclothes := PickRandomGlossary(clothes, rng)
+	renviron := PickRandomGlossary(environs, rng)
+	rback := PickRandomGlossary(backs, rng)
+	rnsfw := PickRandomGlossary(nsfws, rng)
+
+	SetIfInvalid(&env.Action, actions, raction)
+	SetIfInvalid(&env.Clothes, clothes, rclothes)
+	SetIfInvalid(&env.Environment, environs, renviron)
+	SetIfInvalid(&env.Background, backs, rback)
+	SetIfInvalid(&env.NSFW, nsfws, rnsfw)
+
+	return nil
+}

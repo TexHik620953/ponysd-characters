@@ -1,6 +1,7 @@
 package glossary
 
 import (
+	"net/http"
 	"ponysd-characters/services"
 
 	"github.com/labstack/echo/v5"
@@ -17,15 +18,34 @@ func New(svc services.ServicesContext) *Controller {
 func (ctrl *Controller) ListRecords(c *echo.Context) error {
 	typ := c.Param("type")
 
-	_ = typ
-	return nil
+	svc := ctrl.services.GlossaryService()
+
+	records, err := svc.ListRecordsByType(c.Request().Context(), typ)
+	if err != nil {
+		return err
+	}
+
+	result := make([]*GlossaryRecordResponse, len(records))
+	for i, r := range records {
+		result[i] = mapGlossaryRecordToResponse(&r)
+	}
+	return c.JSON(http.StatusOK, result)
 }
 
 func (ctrl *Controller) ListRecordsLocal(c *echo.Context) error {
 	typ := c.Param("type")
 	local := c.Param("local")
 
-	_ = typ
-	_ = local
-	return nil
+	svc := ctrl.services.GlossaryService()
+
+	records, err := svc.ListRecordLocal(c.Request().Context(), typ, local)
+	if err != nil {
+		return err
+	}
+
+	result := make([]*GlossaryRecordResponse, len(records))
+	for i, r := range records {
+		result[i] = mapGlossaryRecordLocalToResponse(&r)
+	}
+	return c.JSON(http.StatusOK, result)
 }

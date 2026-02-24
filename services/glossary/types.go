@@ -41,6 +41,10 @@ type CharacterEnvironment struct {
 	Environment string
 	Background  string
 	NSFW        string
+
+	AdditionalTags []string
+
+	CustomPositive string
 }
 
 func (cenv *CharacterEnvironment) BuildTags() []string {
@@ -51,6 +55,9 @@ func (cenv *CharacterEnvironment) BuildTags() []string {
 	positiveTags = append(positiveTags, string(cenv.Environment))
 	positiveTags = append(positiveTags, string(cenv.Background))
 	positiveTags = append(positiveTags, string(cenv.NSFW))
+
+	positiveTags = append(positiveTags, cenv.AdditionalTags...)
+	positiveTags = append(positiveTags, cenv.CustomPositive)
 
 	return positiveTags
 }
