@@ -12,9 +12,11 @@ import (
 type Character struct {
 	ID          uuid.UUID
 	CreatedAt   pgtype.Timestamp
-	Owner       uuid.UUID
+	OwnerID     uuid.UUID
 	Deleted     bool
+	Public      bool
 	Name        string
+	Biography   *string
 	Nationality string
 	Age         int32
 	Body        string
@@ -24,6 +26,7 @@ type Character struct {
 	HairStyle   string
 	HairColor   string
 	MetaParams  string
+	MainImageID *uuid.UUID
 }
 
 type CharacterImage struct {

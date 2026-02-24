@@ -36,3 +36,15 @@ func (ctrl *Controller) GetCharImage(c *echo.Context) error {
 	_ = imageID
 	return nil
 }
+
+// Enqueue image generation
+func (ctrl *Controller) Create(c *echo.Context) error {
+	user := c.Get("User").(uuid.UUID)
+	charID := c.Param("char_id")
+	imageID := c.Param("id")
+
+	_ = user
+	_ = charID
+	_ = imageID
+	return nil
+}

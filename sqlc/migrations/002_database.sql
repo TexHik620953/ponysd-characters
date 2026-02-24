@@ -8,9 +8,11 @@ create table if not exists character
         constraint character_pk
             primary key,
     created_at  timestamp default now()             not null,
-    owner  uuid                                     not null,
+    owner_id  uuid                                     not null,
     deleted bool default false                      not null,
+    public bool default false                       not null,
     name        text                                not null,
+    biography text,
     nationality text                                not null,
     age         integer                             not null,
     body        text                                not null,
@@ -19,7 +21,8 @@ create table if not exists character
     eyes_color  text                                not null,
     hair_style  text                                not null,
     hair_color  text                                not null,
-    meta_params text                                not null
+    meta_params text                                not null,
+    main_image_id uuid
 );
 
 create table if not exists character_image

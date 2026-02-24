@@ -55,6 +55,7 @@ func (app *Application) configureRoutes() {
 
 		charGroup.GET("/", charImgCtrl.ListCharImages)
 		charGroup.GET("/:id", charImgCtrl.GetCharImage)
+		charGroup.POST("/", charImgCtrl.Create)
 	}
 
 }

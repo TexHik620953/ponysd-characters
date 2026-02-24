@@ -12,13 +12,14 @@ import (
 )
 
 const createCharacter = `-- name: CreateCharacter :one
-insert into character (owner, name, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params) values
-    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id
+insert into character (owner_id, name,biography, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params) values
+    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id
 `
 
 type CreateCharacterParams struct {
-	Owner       uuid.UUID
+	OwnerID     uuid.UUID
 	Name        string
+	Biography   *string
 	Nationality string
 	Age         int32
 	Body        string
@@ -32,8 +33,9 @@ type CreateCharacterParams struct {
 
 func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createCharacter,
-		arg.Owner,
+		arg.OwnerID,
 		arg.Name,
+		arg.Biography,
 		arg.Nationality,
 		arg.Age,
 		arg.Body,
@@ -50,27 +52,34 @@ func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams
 }
 
 const deleteCharacter = `-- name: DeleteCharacter :exec
-update character set deleted = true where id = $1 and not deleted
+update character set deleted = true where owner_id = $1 and id = $2 and not deleted
 `
 
-func (q *Queries) DeleteCharacter(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteCharacter, id)
+type DeleteCharacterParams struct {
+	OwnerID uuid.UUID
+	ID      uuid.UUID
+}
+
+func (q *Queries) DeleteCharacter(ctx context.Context, arg DeleteCharacterParams) error {
+	_, err := q.db.Exec(ctx, deleteCharacter, arg.OwnerID, arg.ID)
 	return err
 }
 
-const getCharacter = `-- name: GetCharacter :one
-select id, created_at, owner, deleted, name, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params from character where id = $1 and not deleted limit 1
+const getPublicCharacter = `-- name: GetPublicCharacter :one
+select id, created_at, owner_id, deleted, public, name, biography, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params, main_image_id from character where id = $1 and not deleted and public limit 1
 `
 
-func (q *Queries) GetCharacter(ctx context.Context, id uuid.UUID) (Character, error) {
-	row := q.db.QueryRow(ctx, getCharacter, id)
+func (q *Queries) GetPublicCharacter(ctx context.Context, id uuid.UUID) (Character, error) {
+	row := q.db.QueryRow(ctx, getPublicCharacter, id)
 	var i Character
 	err := row.Scan(
 		&i.ID,
 		&i.CreatedAt,
-		&i.Owner,
+		&i.OwnerID,
 		&i.Deleted,
+		&i.Public,
 		&i.Name,
+		&i.Biography,
 		&i.Nationality,
 		&i.Age,
 		&i.Body,
@@ -80,16 +89,56 @@ func (q *Queries) GetCharacter(ctx context.Context, id uuid.UUID) (Character, er
 		&i.HairStyle,
 		&i.HairColor,
 		&i.MetaParams,
+		&i.MainImageID,
 	)
 	return i, err
 }
 
-const listUserCharacters = `-- name: ListUserCharacters :many
-select id, created_at, owner, deleted, name, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params from character where owner = $1 and not deleted
+const getUserCharacter = `-- name: GetUserCharacter :one
+select id, created_at, owner_id, deleted, public, name, biography, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params, main_image_id from character where owner_id = $1 and id = $2 and not deleted limit 1
 `
 
-func (q *Queries) ListUserCharacters(ctx context.Context, owner uuid.UUID) ([]Character, error) {
-	rows, err := q.db.Query(ctx, listUserCharacters, owner)
+type GetUserCharacterParams struct {
+	OwnerID uuid.UUID
+	ID      uuid.UUID
+}
+
+func (q *Queries) GetUserCharacter(ctx context.Context, arg GetUserCharacterParams) (Character, error) {
+	row := q.db.QueryRow(ctx, getUserCharacter, arg.OwnerID, arg.ID)
+	var i Character
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.OwnerID,
+		&i.Deleted,
+		&i.Public,
+		&i.Name,
+		&i.Biography,
+		&i.Nationality,
+		&i.Age,
+		&i.Body,
+		&i.Breast,
+		&i.Butt,
+		&i.EyesColor,
+		&i.HairStyle,
+		&i.HairColor,
+		&i.MetaParams,
+		&i.MainImageID,
+	)
+	return i, err
+}
+
+const listPublicCharacters = `-- name: ListPublicCharacters :many
+select id, created_at, owner_id, deleted, public, name, biography, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params, main_image_id from character where public and not deleted limit $1 offset $2
+`
+
+type ListPublicCharactersParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListPublicCharacters(ctx context.Context, arg ListPublicCharactersParams) ([]Character, error) {
+	rows, err := q.db.Query(ctx, listPublicCharacters, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -100,9 +149,11 @@ func (q *Queries) ListUserCharacters(ctx context.Context, owner uuid.UUID) ([]Ch
 		if err := rows.Scan(
 			&i.ID,
 			&i.CreatedAt,
-			&i.Owner,
+			&i.OwnerID,
 			&i.Deleted,
+			&i.Public,
 			&i.Name,
+			&i.Biography,
 			&i.Nationality,
 			&i.Age,
 			&i.Body,
@@ -112,6 +163,49 @@ func (q *Queries) ListUserCharacters(ctx context.Context, owner uuid.UUID) ([]Ch
 			&i.HairStyle,
 			&i.HairColor,
 			&i.MetaParams,
+			&i.MainImageID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserCharacters = `-- name: ListUserCharacters :many
+select id, created_at, owner_id, deleted, public, name, biography, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params, main_image_id from character where owner_id = $1 and not deleted
+`
+
+func (q *Queries) ListUserCharacters(ctx context.Context, ownerID uuid.UUID) ([]Character, error) {
+	rows, err := q.db.Query(ctx, listUserCharacters, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Character
+	for rows.Next() {
+		var i Character
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.OwnerID,
+			&i.Deleted,
+			&i.Public,
+			&i.Name,
+			&i.Biography,
+			&i.Nationality,
+			&i.Age,
+			&i.Body,
+			&i.Breast,
+			&i.Butt,
+			&i.EyesColor,
+			&i.HairStyle,
+			&i.HairColor,
+			&i.MetaParams,
+			&i.MainImageID,
 		); err != nil {
 			return nil, err
 		}

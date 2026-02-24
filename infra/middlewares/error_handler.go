@@ -19,7 +19,7 @@ func ErrorMiddleware() echo.MiddlewareFunc {
 			if err := next(c); err != nil {
 				// Validator errors -> 400 Bad Request
 				if verrs, ok := err.(validator.ValidationErrors); ok {
-					httpErr := httperr.BadRequest("validation error", verrs)
+					httpErr := httperr.ErrBadRequest("validation error", verrs)
 					status, body := httperr.AsHTTP(httpErr)
 					_ = c.JSON(status, body)
 					return nil

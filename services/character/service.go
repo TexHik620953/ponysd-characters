@@ -3,7 +3,6 @@ package character
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/rand"
 	query "ponysd-characters/internal/repos"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/0x6flab/namegenerator"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/minio/minio-go/v7"
 )
 
@@ -34,6 +32,43 @@ func New(
 	}
 }
 
+func (svc *Service) ListPublicCharacters(ctx context.Context, limit, offset int) ([]Character, error) {
+	q := query.New(svc.tx)
+	data, err := q.ListPublicCharacters(ctx, query.ListPublicCharactersParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]Character, len(data))
+	for i, val := range data {
+		var meta map[string]float32
+		if err := json.Unmarshal([]byte(val.MetaParams), &meta); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal character meta:%w", err)
+		}
+		result[i] = Character{
+			ID:            val.ID,
+			OwnerID:       val.OwnerID,
+			CreatedAt:     val.CreatedAt.Time,
+			Nationality:   val.Nationality,
+			Name:          val.Name,
+			Biography:     val.Biography,
+			Age:           int(val.Age),
+			Body:          val.Body,
+			Breast:        val.Breast,
+			Butt:          val.Butt,
+			EyesColor:     val.EyesColor,
+			HairStyle:     val.HairStyle,
+			HairColor:     val.HairColor,
+			CharacterMeta: meta,
+			MainImage:     val.MainImageID,
+		}
+	}
+
+	return result, nil
+}
 func (svc *Service) ListUserCharacters(ctx context.Context, userID uuid.UUID) ([]Character, error) {
 	q := query.New(svc.tx)
 	data, err := q.ListUserCharacters(ctx, userID)
@@ -49,10 +84,11 @@ func (svc *Service) ListUserCharacters(ctx context.Context, userID uuid.UUID) ([
 		}
 		result[i] = Character{
 			ID:            val.ID,
-			OwnerID:       val.Owner,
+			OwnerID:       val.OwnerID,
 			CreatedAt:     val.CreatedAt.Time,
 			Nationality:   val.Nationality,
 			Name:          val.Name,
+			Biography:     val.Biography,
 			Age:           int(val.Age),
 			Body:          val.Body,
 			Breast:        val.Breast,
@@ -61,14 +97,18 @@ func (svc *Service) ListUserCharacters(ctx context.Context, userID uuid.UUID) ([
 			HairStyle:     val.HairStyle,
 			HairColor:     val.HairColor,
 			CharacterMeta: meta,
+			MainImage:     val.MainImageID,
 		}
 	}
 
 	return result, nil
 }
-func (svc *Service) GetCharacter(ctx context.Context, characterID uuid.UUID) (*Character, error) {
+func (svc *Service) GetUserCharacter(ctx context.Context, userID, characterID uuid.UUID) (*Character, error) {
 	q := query.New(svc.tx)
-	data, err := q.GetCharacter(ctx, characterID)
+	data, err := q.GetUserCharacter(ctx, query.GetUserCharacterParams{
+		OwnerID: userID,
+		ID:      characterID,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -78,23 +118,12 @@ func (svc *Service) GetCharacter(ctx context.Context, characterID uuid.UUID) (*C
 		return nil, fmt.Errorf("failed to unmarshal character meta:%w", err)
 	}
 
-	// Get character main image
-	mainImg, err := svc.imgSvc.GetMainImage(ctx, characterID)
-	if err != nil {
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return nil, err
-		} else {
-			mainImg = &imagedb.FileInfo{
-				ID: uuid.Nil,
-			}
-		}
-	}
-
 	return &Character{
 		ID:            data.ID,
-		OwnerID:       data.Owner,
+		OwnerID:       data.OwnerID,
 		CreatedAt:     data.CreatedAt.Time,
 		Nationality:   data.Nationality,
+		Biography:     data.Biography,
 		Name:          data.Name,
 		Age:           int(data.Age),
 		Body:          data.Body,
@@ -104,12 +133,45 @@ func (svc *Service) GetCharacter(ctx context.Context, characterID uuid.UUID) (*C
 		HairStyle:     data.HairStyle,
 		HairColor:     data.HairColor,
 		CharacterMeta: meta,
-		MainImage:     mainImg.ID,
+		MainImage:     data.MainImageID,
 	}, nil
 }
-func (svc *Service) DeleteCharacter(ctx context.Context, characterID uuid.UUID) error {
+func (svc *Service) GetPublicCharacter(ctx context.Context, characterID uuid.UUID) (*Character, error) {
 	q := query.New(svc.tx)
-	return q.DeleteCharacter(ctx, characterID)
+	data, err := q.GetPublicCharacter(ctx, characterID)
+	if err != nil {
+		return nil, err
+	}
+
+	var meta map[string]float32
+	if err := json.Unmarshal([]byte(data.MetaParams), &meta); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal character meta:%w", err)
+	}
+
+	return &Character{
+		ID:            data.ID,
+		OwnerID:       data.OwnerID,
+		CreatedAt:     data.CreatedAt.Time,
+		Nationality:   data.Nationality,
+		Biography:     data.Biography,
+		Name:          data.Name,
+		Age:           int(data.Age),
+		Body:          data.Body,
+		Breast:        data.Breast,
+		Butt:          data.Butt,
+		EyesColor:     data.EyesColor,
+		HairStyle:     data.HairStyle,
+		HairColor:     data.HairColor,
+		CharacterMeta: meta,
+		MainImage:     data.MainImageID,
+	}, nil
+}
+func (svc *Service) DeleteCharacter(ctx context.Context, userID, characterID uuid.UUID) error {
+	q := query.New(svc.tx)
+	return q.DeleteCharacter(ctx, query.DeleteCharacterParams{
+		OwnerID: userID,
+		ID:      characterID,
+	})
 }
 
 // Character creating with fields validation
@@ -222,7 +284,7 @@ func (svc *Service) CreateCharacter(ctx context.Context, character *Character, s
 		return err
 	}
 	id, err := query.New(svc.tx).CreateCharacter(ctx, query.CreateCharacterParams{
-		Owner:       character.OwnerID,
+		OwnerID:     character.OwnerID,
 		Nationality: character.Nationality,
 		Name:        character.Name,
 		Age:         int32(character.Age),

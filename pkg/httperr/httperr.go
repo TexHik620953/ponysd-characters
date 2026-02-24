@@ -27,7 +27,7 @@ var (
 		}
 		return e
 	}
-	BadRequest = func(message string, err error) HttpError {
+	ErrBadRequest = func(message string, err error) HttpError {
 		e := &httpErrorImpl{
 			Message:    message,
 			StatusCode: http.StatusBadRequest,

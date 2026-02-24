@@ -12,7 +12,8 @@ type Character struct {
 	OwnerID   uuid.UUID
 	CreatedAt time.Time
 
-	Name string
+	Name      string
+	Biography *string
 
 	Nationality string
 	Age         int
@@ -28,7 +29,7 @@ type Character struct {
 
 	CharacterMeta map[string]float32
 
-	MainImage uuid.UUID
+	MainImage *uuid.UUID
 }
 
 func getTag(tag, value string, weight float32) string {
