@@ -40,6 +40,15 @@ func New(ctx context.Context, cfg *appconfig.AppConfig) (*Application, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to init database: %w", err)
 	}
+	// Init redis
+	app.redisClient = redis.NewClient(&redis.Options{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPwd,
+		DB:       cfg.RedisDB,
+	})
+	if err = app.redisClient.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("failed to ping regis: %w", err)
+	}
 	//  Init minio
 	app.minioClient, err = minio.New(cfg.MinioAddr, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.MinioKey, cfg.MinioSecret, ""),
@@ -48,7 +57,8 @@ func New(ctx context.Context, cfg *appconfig.AppConfig) (*Application, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to minio: %w", err)
 	}
-	app.services = services.NewServicesContext(app.pgPool, app.minioClient, app.cfg)
+
+	app.services = services.NewServicesContext(app.pgPool, app.redisClient, app.minioClient, app.cfg)
 
 	// Configure echo
 	app.configureRoutes()

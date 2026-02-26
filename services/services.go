@@ -4,15 +4,18 @@ import (
 	"context"
 	"fmt"
 	"ponysd-characters/appconfig"
+	"ponysd-characters/pkg/rmq"
 	"ponysd-characters/services/character"
 	"ponysd-characters/services/filestorage"
 	"ponysd-characters/services/glossary"
 	"ponysd-characters/services/imagedb"
+	"ponysd-characters/services/task"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/matthewhartstonge/argon2"
 	"github.com/minio/minio-go/v7"
+	"github.com/redis/go-redis/v9"
 )
 
 type ServicesContext interface {
@@ -21,10 +24,12 @@ type ServicesContext interface {
 	FileStorageService() *filestorage.Service
 	ImageService() *imagedb.Service
 	GlossaryService() *glossary.Service
+	TasksService() *task.Service
 }
 
 type servicesContext struct {
 	pg          *pgxpool.Pool
+	redis       *redis.Client
 	minioClient *minio.Client
 	argon       *argon2.Config
 	config      *appconfig.AppConfig
@@ -32,11 +37,13 @@ type servicesContext struct {
 
 func NewServicesContext(
 	pgPool *pgxpool.Pool,
+	redis *redis.Client,
 	minioClient *minio.Client,
 	config *appconfig.AppConfig,
 ) ServicesContext {
 	return &servicesContext{
 		pg:          pgPool,
+		redis:       redis,
 		minioClient: minioClient,
 		config:      config,
 	}
@@ -50,13 +57,14 @@ func (svc *servicesContext) BeginTx(ctx context.Context) (pgx.Tx, ServicesContex
 
 	return tx, &txContext{
 		pg:          tx,
+		redis:       svc.redis,
 		minioClient: svc.minioClient,
 		config:      svc.config,
 	}, nil
 }
 
 func (svc *servicesContext) CharacterService() *character.Service {
-	return character.New(svc.pg, svc.minioClient)
+	return character.New(svc.pg, svc.redis, svc.minioClient)
 }
 
 func (svc *servicesContext) FileStorageService() *filestorage.Service {
@@ -70,8 +78,12 @@ func (svc *servicesContext) ImageService() *imagedb.Service {
 func (svc *servicesContext) GlossaryService() *glossary.Service {
 	return glossary.New(svc.pg)
 }
+func (svc *servicesContext) TasksService() *task.Service {
+	return task.New(rmq.New(svc.redis))
+}
 
 type txContext struct {
+	redis       *redis.Client
 	pg          pgx.Tx
 	minioClient *minio.Client
 	config      *appconfig.AppConfig
@@ -82,7 +94,7 @@ func (svc *txContext) BeginTx(ctx context.Context) (pgx.Tx, ServicesContext, err
 }
 
 func (svc *txContext) CharacterService() *character.Service {
-	return character.New(svc.pg, svc.minioClient)
+	return character.New(svc.pg, svc.redis, svc.minioClient)
 }
 
 func (svc *txContext) FileStorageService() *filestorage.Service {
@@ -95,4 +107,8 @@ func (svc *txContext) ImageService() *imagedb.Service {
 
 func (svc *txContext) GlossaryService() *glossary.Service {
 	return glossary.New(svc.pg)
+}
+
+func (svc *txContext) TasksService() *task.Service {
+	return task.New(rmq.New(svc.redis))
 }

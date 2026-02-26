@@ -33,6 +33,16 @@ services:
     depends_on:
       characters-db:
         condition: service_healthy
+  main-redis:
+    hostname: main-redis
+    image: redis:latest
+    ports:
+      - 6379:6379
+    command:
+    - /bin/sh
+    - -c
+    - redis-server --requirepass "${MAIN_REDIS_PWD}"          
+  
 volumes:
   postgres_data:
     driver: local

@@ -6,29 +6,32 @@ import (
 	"fmt"
 	"math/rand"
 	query "ponysd-characters/internal/repos"
-	"ponysd-characters/services/filestorage"
+	"ponysd-characters/pkg/rmq"
 	"ponysd-characters/services/glossary"
-	"ponysd-characters/services/imagedb"
+	"ponysd-characters/services/task"
+	"strings"
 
 	"github.com/0x6flab/namegenerator"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
+	"github.com/redis/go-redis/v9"
 )
 
 type Service struct {
 	tx       query.DBTX
 	glossary *glossary.Service
-	imgSvc   *imagedb.Service
+	task     *task.Service
 }
 
 func New(
 	tx query.DBTX,
+	redis *redis.Client,
 	minioClient *minio.Client,
 ) *Service {
 	return &Service{
 		tx:       tx,
 		glossary: glossary.New(tx),
-		imgSvc:   imagedb.New(tx, filestorage.New(minioClient)),
+		task:     task.New(rmq.New(redis)),
 	}
 }
 
@@ -254,7 +257,7 @@ func (svc *Service) CreateCharacter(ctx context.Context, character *Character, s
 
 // Image generation
 
-func (svc *Service) CreateImage(ctx context.Context, userID, characterID uuid.UUID, environment *glossary.CharacterEnvironment, seed int64) (any, error) {
+func (svc *Service) CreateImage(ctx context.Context, userID, characterID uuid.UUID, environment *glossary.CharacterEnvironment, seed int64) (*task.TaskInfo, error) {
 	rng := rand.New(rand.NewSource(seed))
 
 	// Get character
@@ -288,18 +291,15 @@ func (svc *Service) CreateImage(ctx context.Context, userID, characterID uuid.UU
 	positiveTags = append(positiveTags, character.BuildTags()...)
 	positiveTags = append(positiveTags, environment.BuildTags()...)
 
-	// TODO: Generate task here
-	/*
-		// Run task for generation
-		task := &task.Task{
-			CharacterID:    character.ID,
-			Seed:           int(seed),
-			PositivePrompt: strings.Join(positiveTags, ", "),
-			NegativePrompt: strings.Join(negativeTags, ", "),
-			Status:         string(task.TaskStatusPending),
-		}
-		_, err = svc.taskSvc.CreateImageTask(ctx, task)
-	*/
+	task, err := svc.task.AddImageGenerationTask(ctx, &task.ImageGenerationTask{
+		PositivePrompt: strings.Join(positiveTags, ", "),
+		NetagivePrompt: strings.Join(negativeTags, ", "),
+		Seed:           int(seed),
+	})
 
-	return nil, nil
+	if err != nil {
+		return nil, err
+	}
+
+	return task, nil
 }

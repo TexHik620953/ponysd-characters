@@ -89,7 +89,6 @@ func (ctrl *Controller) Get(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, mapCharacterToResponse(char))
-	return nil
 }
 
 func (ctrl *Controller) Delete(c *echo.Context) error {
