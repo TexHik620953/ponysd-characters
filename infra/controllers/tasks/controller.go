@@ -25,7 +25,12 @@ func (ctrl *Controller) PullTask(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, task)
+	return c.JSON(http.StatusOK, &Task{
+		ID:             task.ID,
+		PositivePrompt: task.PositivePrompt,
+		NegativePrompt: task.NegativePrompt,
+		Seed:           task.Seed,
+	})
 }
 
 func (ctrl *Controller) PushResult(c *echo.Context) error {

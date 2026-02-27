@@ -299,6 +299,8 @@ func (svc *Service) CreateImage(ctx context.Context, userID, characterID uuid.UU
 		PositivePrompt: strings.Join(positiveTags, ", "),
 		NegativePrompt: strings.Join(negativeTags, ", "),
 		Seed:           int(seed),
+		UserID:         userID,
+		CharacterID:    characterID,
 	})
 
 	if err != nil {
