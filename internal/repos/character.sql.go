@@ -12,12 +12,13 @@ import (
 )
 
 const createCharacter = `-- name: CreateCharacter :one
-insert into character (owner_id, name,biography, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params) values
-    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id
+insert into character (owner_id, public, name, biography, nationality, age, body, breast, butt, eyes_color, hair_style, hair_color, meta_params) values
+    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id
 `
 
 type CreateCharacterParams struct {
 	OwnerID     uuid.UUID
+	Public      bool
 	Name        string
 	Biography   *string
 	Nationality string
@@ -34,6 +35,7 @@ type CreateCharacterParams struct {
 func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createCharacter,
 		arg.OwnerID,
+		arg.Public,
 		arg.Name,
 		arg.Biography,
 		arg.Nationality,

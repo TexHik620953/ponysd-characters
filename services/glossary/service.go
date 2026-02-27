@@ -38,6 +38,15 @@ func (svc *Service) ListRecordsByType(ctx context.Context, _type string) ([]Glos
 	return result, nil
 }
 
+func (svc *Service) ListTypes(ctx context.Context) ([]string, error) {
+	q := query.New(svc.tx)
+	data, err := q.ListTypes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 func (svc *Service) ListRecordLocal(ctx context.Context, _type, local string) ([]GlossaryRecordLocal, error) {
 	q := query.New(svc.tx)
 	data, err := q.ListGlossaryByTypeLocal(ctx, query.ListGlossaryByTypeLocalParams{

@@ -83,6 +83,7 @@ func (ctrl *Controller) ProbeCreate(c *echo.Context) error {
 	_ = user
 	_ = charID
 
-	// TODO: Push task here to queue, and return task info and id
-	return nil
+	return c.JSON(http.StatusOK, &ProbeResponse{
+		TokensRequired: 10,
+	})
 }

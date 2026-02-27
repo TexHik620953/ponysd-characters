@@ -11,6 +11,7 @@ type Character struct {
 	ID        uuid.UUID
 	OwnerID   uuid.UUID
 	CreatedAt time.Time
+	Public    bool
 
 	Name      string
 	Biography *string

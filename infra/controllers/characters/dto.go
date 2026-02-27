@@ -11,6 +11,7 @@ type CharacterResponse struct {
 	ID          uuid.UUID  `json:"id"`
 	CreatedAt   string     `json:"created_at"`
 	Name        string     `json:"name"`
+	Public      bool       `json:"public"`
 	Biography   *string    `json:"bio"`
 	Nationality string     `json:"nationality"`
 	Age         int        `json:"age"`
@@ -42,6 +43,7 @@ func mapCharacterToResponse(c *character.Character) *CharacterResponse {
 		HairStyle:   c.HairStyle,
 		HairColor:   c.HairColor,
 		MainImage:   c.MainImage,
+		Public:      c.Public,
 	}
 }
 
@@ -57,5 +59,6 @@ type CreateCharacterRequest struct {
 	HairStyle   string  `json:"hair_style"`
 	HairColor   string  `json:"hair_color"`
 
-	Seed int `json:"seed"`
+	Public bool `json:"public"`
+	Seed   int  `json:"seed"`
 }

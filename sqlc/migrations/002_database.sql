@@ -60,6 +60,23 @@ create table if not exists glossary_localization
     name text not null
 );
 
+create table tasks
+(
+    id     uuid default gen_random_uuid() not null
+        constraint tasks_pk
+            primary key,
+    created_at  timestamp default now()             not null,            
+    status text                           not null,
+    user_id uuid not null,
+    character_id uuid not null,
+    positive text not null,
+    negative text not null,
+    seed int not null
+);
+
+
+
+
 
 
 -- +goose StatementEnd
@@ -71,4 +88,6 @@ drop table if exists character_image;
 
 drop table if exists glossary;
 drop table if exists glossary_localization;
+
+drop table if exists tasks;
 -- +goose StatementEnd

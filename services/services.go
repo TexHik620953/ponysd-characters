@@ -79,7 +79,7 @@ func (svc *servicesContext) GlossaryService() *glossary.Service {
 	return glossary.New(svc.pg)
 }
 func (svc *servicesContext) TasksService() *task.Service {
-	return task.New(rmq.New(svc.redis))
+	return task.New(svc.pg, rmq.New(svc.redis))
 }
 
 type txContext struct {
@@ -110,5 +110,5 @@ func (svc *txContext) GlossaryService() *glossary.Service {
 }
 
 func (svc *txContext) TasksService() *task.Service {
-	return task.New(rmq.New(svc.redis))
+	return task.New(svc.pg, rmq.New(svc.redis))
 }

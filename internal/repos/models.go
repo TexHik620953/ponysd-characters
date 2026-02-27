@@ -50,3 +50,14 @@ type GlossaryLocalization struct {
 	Local      string
 	Name       string
 }
+
+type Task struct {
+	ID          uuid.UUID
+	CreatedAt   pgtype.Timestamp
+	Status      string
+	UserID      uuid.UUID
+	CharacterID uuid.UUID
+	Positive    string
+	Negative    string
+	Seed        int32
+}

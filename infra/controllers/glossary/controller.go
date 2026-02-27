@@ -15,6 +15,16 @@ func New(svc services.ServicesContext) *Controller {
 	return &Controller{services: svc}
 }
 
+func (ctrl *Controller) ListTypes(c *echo.Context) error {
+	svc := ctrl.services.GlossaryService()
+
+	records, err := svc.ListTypes(c.Request().Context())
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, records)
+}
+
 func (ctrl *Controller) ListRecords(c *echo.Context) error {
 	typ := c.Param("type")
 

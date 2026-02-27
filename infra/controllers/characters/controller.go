@@ -44,7 +44,7 @@ func (ctrl *Controller) ListUserCharacters(c *echo.Context) error {
 func (ctrl *Controller) PublicListCharacters(c *echo.Context) error {
 	page, err := strconv.ParseInt(c.QueryParam("page"), 10, 32)
 	if err != nil {
-		return httperr.ErrBadRequest("page is invalid", err)
+		page = 0
 	}
 
 	svc := ctrl.services.CharacterService()
@@ -127,6 +127,7 @@ func (ctrl *Controller) Create(c *echo.Context) error {
 		EyesColor:   req.EyesColor,
 		HairStyle:   req.HairStyle,
 		HairColor:   req.HairColor,
+		Public:      req.Public,
 	}
 
 	svc.CreateCharacter(c.Request().Context(), char, int64(req.Seed))

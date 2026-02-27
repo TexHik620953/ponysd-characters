@@ -67,3 +67,27 @@ func (q *Queries) ListGlossaryByTypeLocal(ctx context.Context, arg ListGlossaryB
 	}
 	return items, nil
 }
+
+const listTypes = `-- name: ListTypes :many
+select type from glossary group by type
+`
+
+func (q *Queries) ListTypes(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listTypes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var type_ string
+		if err := rows.Scan(&type_); err != nil {
+			return nil, err
+		}
+		items = append(items, type_)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

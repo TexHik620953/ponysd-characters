@@ -38,3 +38,7 @@ type GenerateImageRequest struct {
 
 	CustomPositive string `json:"custom_positive"`
 }
+
+type ProbeResponse struct {
+	TokensRequired int `json:"tokens_required"`
+}

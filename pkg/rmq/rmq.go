@@ -96,32 +96,32 @@ func (r *Rmq) GetPosition(ctx context.Context, queue string, messageID uuid.UUID
 }
 
 // DequeueBlocking извлекает элемент с блокировкой (ждет появления элементов)
-func (r *Rmq) DequeueBlocking(ctx context.Context, queue string, timeout time.Duration, data any) error {
+func (r *Rmq) DequeueBlocking(ctx context.Context, queue string, timeout time.Duration, data any) (uuid.UUID, error) {
 	// Используем BLPOP для блокирующего извлечения
 	result, err := r.redisClient.BLPop(ctx, timeout, queue).Result()
 	if err == redis.Nil {
-		return ErrDequeueTimeout
+		return uuid.Nil, ErrDequeueTimeout
 	}
 	if err != nil {
-		return fmt.Errorf("failed to blocking dequeue: %w", err)
+		return uuid.Nil, fmt.Errorf("failed to blocking dequeue: %w", err)
 	}
 
 	// result[0] - имя очереди, result[1] - данные
 	if len(result) < 2 {
-		return errors.New("unexpected BLPOP result")
+		return uuid.Nil, errors.New("unexpected BLPOP result")
 	}
 
 	message := QueueObj{
 		Data: data,
 	}
 	if err := json.Unmarshal([]byte(result[1]), &message); err != nil {
-		return fmt.Errorf("failed to unmarshal message: %w", err)
+		return uuid.Nil, fmt.Errorf("failed to unmarshal message: %w", err)
 	}
 
 	// Удаляем индекс сообщения
 	go r.cleanupIndex(context.Background(), queue, message.ID)
 
-	return nil
+	return message.ID, nil
 }
 
 // cleanupIndex удаляет индекс сообщения (внутренний метод)

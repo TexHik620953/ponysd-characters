@@ -23,7 +23,7 @@ func NewUserIDAuth() echo.MiddlewareFunc {
 			if err != nil {
 				return httperr.ErrUnauthorized("failed to parse uuid from userID", err)
 			}
-			c.Set("UserID", id)
+			c.Set("User", id)
 			return next(c)
 		}
 	}

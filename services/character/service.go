@@ -31,7 +31,7 @@ func New(
 	return &Service{
 		tx:       tx,
 		glossary: glossary.New(tx),
-		task:     task.New(rmq.New(redis)),
+		task:     task.New(tx, rmq.New(redis)),
 	}
 }
 
@@ -67,6 +67,7 @@ func (svc *Service) ListPublicCharacters(ctx context.Context, limit, offset int)
 			HairColor:     val.HairColor,
 			CharacterMeta: meta,
 			MainImage:     val.MainImageID,
+			Public:        val.Public,
 		}
 	}
 
@@ -101,6 +102,7 @@ func (svc *Service) ListUserCharacters(ctx context.Context, userID uuid.UUID) ([
 			HairColor:     val.HairColor,
 			CharacterMeta: meta,
 			MainImage:     val.MainImageID,
+			Public:        val.Public,
 		}
 	}
 
@@ -137,6 +139,7 @@ func (svc *Service) GetCharacter(ctx context.Context, userID, characterID uuid.U
 		HairColor:     data.HairColor,
 		CharacterMeta: meta,
 		MainImage:     data.MainImageID,
+		Public:        data.Public,
 	}, nil
 }
 func (svc *Service) DeleteCharacter(ctx context.Context, userID, characterID uuid.UUID) error {
@@ -202,12 +205,12 @@ func (svc *Service) fixCharacter(ctx context.Context, character *Character, rng 
 		character.Age = rage
 	}
 	glossary.SetIfInvalid(&character.Nationality, gnat, rnationality)
-	glossary.SetIfInvalid(&character.Body, gnat, rbody)
-	glossary.SetIfInvalid(&character.Breast, gnat, rbreast)
-	glossary.SetIfInvalid(&character.Butt, gnat, rbutt)
-	glossary.SetIfInvalid(&character.EyesColor, gnat, reyesColor)
-	glossary.SetIfInvalid(&character.HairColor, gnat, rhairColor)
-	glossary.SetIfInvalid(&character.HairStyle, gnat, rhairStyle)
+	glossary.SetIfInvalid(&character.Body, gbody, rbody)
+	glossary.SetIfInvalid(&character.Breast, gbreast, rbreast)
+	glossary.SetIfInvalid(&character.Butt, gbutt, rbutt)
+	glossary.SetIfInvalid(&character.EyesColor, geyesColor, reyesColor)
+	glossary.SetIfInvalid(&character.HairColor, ghairColor, rhairColor)
+	glossary.SetIfInvalid(&character.HairStyle, ghairStyle, rhairStyle)
 
 	if character.CharacterMeta == nil {
 		character.CharacterMeta = map[string]float32{}
@@ -240,6 +243,7 @@ func (svc *Service) CreateCharacter(ctx context.Context, character *Character, s
 		HairStyle:   character.HairStyle,
 		HairColor:   character.HairColor,
 		MetaParams:  string(meta),
+		Public:      character.Public,
 	})
 	if err != nil {
 		return err
@@ -257,27 +261,27 @@ func (svc *Service) CreateCharacter(ctx context.Context, character *Character, s
 
 // Image generation
 
-func (svc *Service) CreateImage(ctx context.Context, userID, characterID uuid.UUID, environment *glossary.CharacterEnvironment, seed int64) (*task.TaskInfo, error) {
+func (svc *Service) CreateImage(ctx context.Context, userID, characterID uuid.UUID, environment *glossary.CharacterEnvironment, seed int64) (uuid.UUID, error) {
 	rng := rand.New(rand.NewSource(seed))
 
 	// Get character
 	character, err := svc.GetCharacter(ctx, userID, characterID)
 	if err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 
 	err = svc.glossary.FixEnvironment(ctx, environment, rng)
 	if err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 
 	defaultPositiveTags, err := svc.glossary.ListRecordsByType(ctx, glossary.KEY_DEFAULT_POSITIVE)
 	if err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 	defaultNegativeTags, err := svc.glossary.ListRecordsByType(ctx, glossary.KEY_DEFAULT_NEGATIVE)
 	if err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 	negativeTags := make([]string, 0)
 	for _, rec := range defaultNegativeTags {
@@ -293,12 +297,12 @@ func (svc *Service) CreateImage(ctx context.Context, userID, characterID uuid.UU
 
 	task, err := svc.task.AddImageGenerationTask(ctx, &task.ImageGenerationTask{
 		PositivePrompt: strings.Join(positiveTags, ", "),
-		NetagivePrompt: strings.Join(negativeTags, ", "),
+		NegativePrompt: strings.Join(negativeTags, ", "),
 		Seed:           int(seed),
 	})
 
 	if err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 
 	return task, nil
